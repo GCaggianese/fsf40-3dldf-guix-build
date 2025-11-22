@@ -1,0 +1,104 @@
+#+title: 3dldf
+
+* Patched ctangle
+- Clone /cweb/
+   ~git clone https://github.com/ascherer/cweb.git~
+- Modify the Makefile:
+   * /Line 62:/ replace RM, CP to
+#+begin_src makefile
+RM= /usr/bin/env rm
+CP= /usr/bin/env cp
+#+end_src
+- Patch ~ctangle.w~
+  - Here's a catch, we're supposed to use the Makefile ~TCHANGES~ option to load
+    a .ch file with just the modification, but I couldn't make it work. Since
+    we're using this ctangle only to build 3DLDF this approach is good enough
+    for a first attempt on packaging 3DLDF.
+Line *129 and 130* modify the _max_texts_ and _max_toks_ variables to *10239* and *27000000* respectively.
+#+begin_src
+@ @d max_texts 10239 /* number of replacement texts, must be less than 10240 */
+@d max_toks 27000000 /* number of bytes in compressed \CEE/ code */
+#+end_src
+I guess you may be able to use an smaller number, but as far as I tried you'll need a huge one for it to work (and the shipped .ch with bigger configs, at least in my tests, are not big enough).
+- Build with ~make all~ (other targets are available but might introduce problems).
+- Do ~realpath ctangle~, we're using this path to modify the PATH when building 3DLDF.
+  NOTE: this is completely unnecessary if we implement for example a transient package with this.
+
+* 3DLDF
+
+** Bootstrap build system
+
+#+begin_src bash
+libtoolize && \
+aclocal && \
+autoconf && \
+automake --add-missing --copy
+#+end_src
+
+** Configure build
+- Need to find the mysql files:
+#+begin_src bash
+pkg-config --cflags mysqlclient
+#+end_src
+~-I/gnu/store/nkw5chcj9b584s4skq2b2csbq35xjm59-mysql-5.7.33/include/mysql -I/gnu/store/m0rqdrh98k773rxw6xhybzgksdy5h32p-openssl-3.0.8/include~
+NOTE: This approach won't work while packaging (and I guess is not actually needed), but this is out of my knowledge.
+
+- Then:
+#+begin_src bash
+./configure --prefix=$(pwd) \
+            CPPFLAGS="-I/gnu/store/nkw5chcj9b584s4skq2b2csbq35xjm59-mysql-5.7.33/include/mysql -I/gnu/store/m0rqdrh98k773rxw6xhybzgksdy5h32p-openssl-3.0.8/include" \
+            CXXFLAGS="-std=gnu++11 -fpermissive -fdiagnostics-show-option -Wno-return-type -g -O2" \
+            LDFLAGS="-L/gnu/store/nkw5chcj9b584s4skq2b2csbq35xjm59-mysql-5.7.33/lib" \
+            --disable-shared \
+            LIBS="-lgsl -lgslcblas -lm -lmysqlclient"
+#+end_src
+*Notice* the ~CPPFLAGS~ are the output of the previous pkg-config command with the directory of the ~fenv.h~ library, and the ~LDFLAGS~ is the standard lib location of mysql.
+
+** Pre Make
+*** Use patched ctangle
+- Modify ~src/Makefile~ and change every ~ctangle~ entry to the patched ~ctangle~ path; this is not needed if a patched version is packaged for the sake of this package build.
+*** Create Headers
+- ~cd src/~ and run ~./create_headers.sh~
+
+*** Patch Makefile
+For some reason the Makefile expects you to have in $PATH a
+[[https://lists.gnu.org/archive/html/help-3dldf/2005-11/txtW0PLXn2tsu.txt][trivial but needed program]] that is going to compile itself.
+At line _1394_ approx. change:
+
+#+begin_src makefile
+scnmptpt.l++: scnmptpt.web
+	/home/kang/PARA/Projects/FSF40/cweb/cweb/ctangle scnmptpt.web
+	./prbsnflx$(EXEEXT) scnmptpt.c scnmptpt.l++
+	rm scnmptpt.c
+	./check_scan_parse_output.sh scnmptpt.lxx scnmptpt.l++
+#+end_src
+
+** Make
+- Finally while at ~src/~ run ~make prog~ to compile the program.
+
+*** Clean
+- run ~make maintainer-clean~, this will erase all and need to start over step 1.
+
+* Final Notes:
+** Used ~guix shell~
+- All the 3DLDF part was done using a --pure guix shell, therefore it should be possible to package this.
+#+begin_src bash
+guix shell libtool gsl mysql pkg-config gcc-toolchain@11.5.0 automake@1.16.5 flex bison coreutils sed grep gawk make bash m4 autoconf openssl glibc glib:bin findutils --pure -- bash --norc --noprofile
+#+end_src
+- The ctangle was just compiled with my base system (GNU Guix git 2025-11-22); it should work with gcc-toolchain@15.2.0.
+** Towards packaging
+I think it may be possible to create a guix package following this write-up, though we should take into consideration several aspects:
+  1. The databases won't work:
+     3DLDF connection is hardcoded to /run/mysql, I guess a patch for this should be possible thoug I suspect that that's only an small part of the problem as the compiled program segfaults when trying to interact with the nonexistent database.
+  2. Seems to work:
+     As said, I just managed to run a simple diagonal line:
+     test.ldf
+     #+begin_src ldf
+verbatim_metapost "beginfig(1);";
+verbatim_metapost "draw (0,0)--(100,100);";
+verbatim_metapost "endfig;";
+verbatim_metapost "end";
+     #+end_src
+with after running ~./3dldf --no-database test.ldf~ followed by ~end~ outputs a test.mp file, which processed with ~mptopdf test.mp~, of the ~texlive-mptopdf~ package results in what it seems to be the expected output.
+This to be honest doesn't mean that much to me as I'm not really expert on this program, and was not really able to parse any of the examples by hand (though I guess it might be me not using it correctly).
+You can check this at the /tests/ directory.
