@@ -52,7 +52,7 @@ NOTE: This approach won't work while packaging (and I guess is not actually need
             --disable-shared \
             LIBS="-lgsl -lgslcblas -lm -lmysqlclient"
 #+end_src
-*Notice* the ~CPPFLAGS~ are the output of the previous pkg-config command with the directory of the ~fenv.h~ library, and the ~LDFLAGS~ is the standard lib location of mysql.
+*Notice* the ~CPPFLAGS~ are the output of the previous pkg-config command and the ~LDFLAGS~ is the standard lib location of mysql.
 
 ** Pre Make
 *** Use patched ctangle
