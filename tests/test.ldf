@@ -1,0 +1,4 @@
+verbatim_metapost "beginfig(1);";
+verbatim_metapost "draw (0,0)--(100,100);";
+verbatim_metapost "endfig;";
+verbatim_metapost "end";

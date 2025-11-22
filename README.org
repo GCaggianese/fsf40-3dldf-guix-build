@@ -101,4 +101,5 @@ verbatim_metapost "end";
      #+end_src
 with after running ~./3dldf --no-database test.ldf~ followed by ~end~ outputs a test.mp file, which processed with ~mptopdf test.mp~, of the ~texlive-mptopdf~ package results in what it seems to be the expected output.
 This to be honest doesn't mean that much to me as I'm not really expert on this program, and was not really able to parse any of the examples by hand (though I guess it might be me not using it correctly).
-You can check this at the /tests/ directory.
+
+- You can check some outputs in the /tests/ directory.
