@@ -1,4 +1,4 @@
-#+title: 3dldf
+#+title: 3DLDF
 
 * Patched ctangle
 - Clone /cweb/
